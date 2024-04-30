@@ -75,6 +75,39 @@ app.post('/addquestions', async function (req, res) {
     }
 });
 
+app.get('/create-test', async function (req, res) {
+    const { numberOfQuestions } = req.query;
+
+    try {
+        // Retrieve all questions from the database
+        const allQuestions = await db.collection("questions").find().toArray();
+
+        // Check if there are enough questions available
+        if (allQuestions.length < numberOfQuestions) {
+            return res.status(400).send("Not enough questions available.");
+        }
+
+        // Shuffle the array of questions to randomize the selection
+        const shuffledQuestions = shuffleArray(allQuestions);
+
+        // Select the specified number of random questions
+        const selectedQuestions = shuffledQuestions.slice(0, numberOfQuestions);
+
+        res.send(selectedQuestions);
+    } catch (error) {
+        console.error("Error creating test:", error);
+        res.status(500).send("Failed to create test.");
+    }
+});
+
+// Function to shuffle an array (Fisher-Yates shuffle algorithm)
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
 // Add your other APIs here...
 
 app.listen(PORT, () => {
