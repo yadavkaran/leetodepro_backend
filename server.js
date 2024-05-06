@@ -75,6 +75,54 @@ app.post('/addquestions', async function (req, res) {
     }
 });
 
+// API to submit answers
+app.post('/submit-answers', async function (req, res) {
+    console.log("reached")
+    const { studentId, questionIds } = req.body; // Assuming you pass an array of question IDs the student has answered
+    console.log("req.body "+req.body)
+    try {
+        // Check if the student already exists in the question_solved collection
+        const student = await db.collection("question_solved").findOne({ studentId });
+
+        if (student) {
+            // Update the student's solved questions list
+            await db.collection("question_solved").updateOne(
+                { studentId },
+                { $addToSet: { solvedQuestions: { $each: questionIds } } } // Using $addToSet to avoid duplicates
+            );
+        } else {
+            // If no student exists, create a new record
+            await db.collection("question_solved").insertOne({
+                studentId,
+                solvedQuestions: questionIds
+            });
+        }
+        res.status(200).json({ message: "Answers submitted successfully." });
+    } catch (error) {
+        console.error("Error submitting answers new :", error);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+});
+
+// API to get solved questions by student ID
+app.get('/solved-questions/:studentId', async function (req, res) {
+    const studentId = parseInt(req.params.studentId);
+
+    try {
+        const studentData = await db.collection("question_solved").findOne({ studentId });
+
+        if (studentData && studentData.solvedQuestions) {
+            res.status(200).json(studentData.solvedQuestions);
+        } else {
+            res.status(404).send("No solved questions found for the provided student ID.");
+        }
+    } catch (error) {
+        console.error("Error fetching solved questions:", error);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+});
+
+
 // Add your other APIs here...
 
 app.listen(PORT, () => {
