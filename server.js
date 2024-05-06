@@ -122,8 +122,107 @@ app.get('/solved-questions/:studentId', async function (req, res) {
     }
 });
 
+app.get('/create-test', async function (req, res) {
+    const { numberOfQuestions } = req.query;
 
+    try {
+        // Retrieve all questions from the database
+        const allQuestions = await db.collection("questions").find().toArray();
+
+        // Check if there are enough questions available
+        if (allQuestions.length < numberOfQuestions) {
+            return res.status(400).send("Not enough questions available.");
+        }
+
+        // Shuffle the array of questions to randomize the selection
+        const shuffledQuestions = shuffleArray(allQuestions);
+
+        // Select the specified number of random questions
+        const selectedQuestions = shuffledQuestions.slice(0, numberOfQuestions);
+
+        res.send(selectedQuestions);
+    } catch (error) {
+        console.error("Error creating test:", error);
+        res.status(500).send("Failed to create test.");
+    }
+});
+
+// Function to shuffle an array (Fisher-Yates shuffle algorithm)
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
 // Add your other APIs here...
+app.post('/signup', async (req, res) => {
+    try {
+        const { firstname, lastname, email, password, isTeacher } = req.body;
+        const role = isTeacher ? 'teacher' : 'student';
+
+        // Check if the email already exists in the database
+        const existingUser = await db.collection("user").findOne({ email });
+        if (existingUser) {
+            return res.status(400).send("Email already exists.");
+        }
+
+        // Retrieve the current maximum UserId
+        const maxUserId = await db.collection("user").find().sort({ UserId: -1 }).limit(1).toArray();
+        let newUserId = 1; // Default value if no users exist yet
+
+        if (maxUserId.length > 0) {
+            newUserId = maxUserId[0].UserId + 1;
+        }
+
+        // Create a new user object
+        const newUser = {
+            UserId: newUserId,
+            firstname,
+            lastname,
+            email,
+            password,
+            role
+        };
+
+        // Insert the new user into the database
+        const result = await db.collection("user").insertOne(newUser);
+
+        if (result.acknowledged) {
+            res.status(201).json({message : 'User added successfully.'});
+        } else {
+            res.status(500).send("Failed to add User.");
+        }
+    } catch (error) {
+        console.error("Error adding User:", error);
+        res.status(500).send("Failed to add User.");
+    }
+});
+
+
+app.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        // Check if a user with the provided email exists
+        const user = await db.collection("user").findOne({ email });
+
+        if (!user) {
+            return res.status(404).send("User not found.");
+        }
+
+        // Check if the password matches
+        if (user.password !== password) {
+            return res.status(401).send("Incorrect password.");
+        }
+
+        // If email and password match, send a success response
+        res.status(200).json({ message: 'Login successful', user });
+    } catch (error) {
+        console.error("Error during login:", error);
+        res.status(500).send("Internal Server Error");
+    }
+});
 
 app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
